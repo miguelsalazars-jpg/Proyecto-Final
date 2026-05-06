@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Reglas para pedidos
+    match /pedidos/{pedidoId} {
+      // Permitir lectura si es admin o si el documento le pertenece
+      allow read: if request.auth != null && (request.auth.token.email == 'miguel.salazars@udem.edu' || resource.data.userId == request.auth.uid);
+      // Permitir crear a cualquier usuario (incluso anónimos por ahora para no perder ventas)
+      allow create: if true;
+      // Actualizar y borrar solo el admin
+      allow update, delete: if request.auth != null && (request.auth.token.email == 'miguel.salazars@udem.edu' || request.auth.uid == 'miguel.salazars@udem.edu');
+    }
+
+    // Sesiones de Chat
+    match /chats/{chatId} {
+      allow read: if request.auth != null && (request.auth.token.email == 'miguel.salazars@udem.edu' || resource.data.userId == request.auth.uid || resource.data.userId == 'anonymous');
+      allow create: if true;
+      allow update: if true;
+    }
+
+    // Mensajes individuales
+    match /chats/{chatId}/messages/{messageId} {
+      allow read, write: if true;
+    }
+
+    // Denegar todo lo demás por defecto al final
+    match /{document=**} {
+      allow read, write: if request.auth != null && request.auth.token.email == 'miguel.salazars@udem.edu';
+    }
+  }
+}

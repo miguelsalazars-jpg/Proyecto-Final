@@ -1,0 +1,69 @@
+{
+  "entities": {
+    "Message": {
+      "title": "Mensaje de Chat",
+      "description": "Un mensaje individual dentro de una conversación",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "sender": { "type": "string", "enum": ["user", "bot", "agent"] },
+        "timestamp": { "type": "integer" },
+        "category": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["text", "sender", "timestamp", "userId"]
+    },
+    "ChatSession": {
+      "title": "Sesión de Chat",
+      "description": "Resumen de una conversación de cliente",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "resolved", "escalated"] },
+        "category": { "type": "string" },
+        "lastUpdate": { "type": "integer" },
+        "userId": { "type": "string" }
+      },
+      "required": ["userId", "status", "category", "lastUpdate"]
+    },
+    "Pedido": {
+      "title": "Pedido de Comida",
+      "description": "Un registro de un pedido realizado",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "items": { "type": "string" },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["pendiente", "preparando", "listo", "entregado"] },
+        "tipoEntrega": { "type": "string", "enum": ["delivery", "pickup"] },
+        "timestamp": { "type": "integer" },
+        "notas": { "type": "string" },
+        "telefono": { "type": "string" },
+        "feedback": {
+          "type": "object",
+          "properties": {
+            "rating": { "type": "integer", "description": "Calificación del pedido del 1 al 5" },
+            "comment": { "type": "string", "description": "Comentarios del cliente" },
+            "timestamp": { "type": "string", "format": "date-time" }
+          }
+        }
+      },
+      "required": ["userId", "items", "total", "status", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/chats/{chatId}": {
+      "schema": "ChatSession",
+      "description": "Colección de sesiones de chat"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Subcolección de mensajes para cada sesión"
+    },
+    "/pedidos/{pedidoId}": {
+      "schema": "Pedido",
+      "description": "Colección global de pedidos"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Taquería Sabor Regio",
+  "description": "El auténtico sabor del norte. Pide tus tacos de trompo, gringas y más vía chat inteligente.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": []
+}
