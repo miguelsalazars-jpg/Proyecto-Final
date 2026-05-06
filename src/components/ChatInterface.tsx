@@ -22,6 +22,9 @@ import {
 } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
+import { RetellWebClient } from 'retell-client-js-sdk';
+
+const retellWebClient = new RetellWebClient();
 
 export const ChatInterface: React.FC = () => {
   const [user, setUser] = useState(auth.currentUser);
@@ -32,6 +35,9 @@ export const ChatInterface: React.FC = () => {
   const [isSendingOrder, setIsSendingOrder] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<any>(null);
   const [userOrders, setUserOrders] = useState<any[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isCallActive, setIsCallActive] = useState(false);
   const isAdmin = user?.email === 'miguel.salazars@udem.edu';
   const [itemExtras, setItemExtras] = useState({
     cebolla: true,
@@ -301,6 +307,41 @@ export const ChatInterface: React.FC = () => {
     }
   };
 
+  const handleRetellCall = async () => {
+    if (isCallActive) {
+      retellWebClient.stopCall();
+      setIsCallActive(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/create-web-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          agent_id: import.meta.env.VITE_RETELL_AGENT_ID 
+        })
+      });
+      const data = await response.json();
+      
+      if (response.ok && data.access_token) {
+        await retellWebClient.startCall({
+          accessToken: data.access_token,
+        });
+        setIsCallActive(true);
+        
+        retellWebClient.on('call_ended', () => {
+          setIsCallActive(false);
+        });
+      } else {
+        throw new Error(data.error || "Error desconocido al crear la llamada");
+      }
+    } catch (error: any) {
+      console.error("Error iniciando llamada Retell:", error);
+      alert(`Error en llamada: ${error.message}. Asegúrate de configurar RETELL_AGENT_ID correctamente.`);
+    }
+  };
+
   return (
     <div id="menu-container" className="flex flex-col min-h-screen w-full bg-gray-50">
       {/* Header */}
@@ -318,6 +359,30 @@ export const ChatInterface: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setIsRecording(!isRecording)}
+            className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${
+              isRecording 
+                ? 'bg-rose-500 text-white animate-pulse shadow-lg shadow-rose-200' 
+                : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+            }`}
+            title="Chat de Voz"
+          >
+            {isRecording ? <Mic size={20} /> : <MicOff size={20} />}
+          </button>
+          
+          <button 
+            onClick={() => setIsSpeaking(!isSpeaking)}
+            className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${
+              isSpeaking 
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' 
+                : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+            }`}
+            title="Escuchar Respuesta"
+          >
+            {isSpeaking ? <Volume2 size={20} /> : <VolumeX size={20} />}
+          </button>
+
           {user && (
             <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center border border-indigo-100 overflow-hidden shadow-sm">
               {user.photoURL ? (
@@ -331,7 +396,39 @@ export const ChatInterface: React.FC = () => {
       </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+      <div className="flex-1 overflow-y-auto no-scrollbar relative">
+        <AnimatePresence>
+          {isRecording && (
+            <motion.div 
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -50, opacity: 0 }}
+              className="absolute top-4 left-6 right-6 z-40"
+            >
+              <div className="bg-rose-500 text-white p-4 rounded-3xl shadow-xl shadow-rose-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-1 group">
+                    {[1, 2, 3].map((i) => (
+                      <div 
+                        key={i} 
+                        className="w-1 bg-white/60 rounded-full animate-bounce" 
+                        style={{ height: `${8 + i * 4}px`, animationDelay: `${i * 0.1}s` }}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">Escuchando tu pedido...</span>
+                </div>
+                <button 
+                  onClick={() => setIsRecording(false)}
+                  className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-xl transition-all"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="pb-20">
           {/* Order Type Selector */}
           <div className="px-6 py-6 sticky top-0 bg-white z-20 shadow-sm shadow-gray-100/50">
@@ -478,6 +575,28 @@ export const ChatInterface: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Retell Call Floating Button (Bottom Right) */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={handleRetellCall}
+          className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-2xl border-4 border-white ${
+            isCallActive 
+              ? 'bg-emerald-500 text-white animate-pulse shadow-emerald-200' 
+              : 'bg-orange-600 text-white shadow-orange-200 hover:bg-orange-700'
+          }`}
+          title="Llamada Inteligente (Retell)"
+        >
+          <Phone size={28} className={isCallActive ? 'animate-bounce' : ''} />
+          {isCallActive && (
+            <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest border-2 border-white">
+              En Vivo
+            </span>
+          )}
+        </motion.button>
+      </div>
 
       {/* Cart Modal / Checkout Drawer */}
       <AnimatePresence>

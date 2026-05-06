@@ -311,8 +311,11 @@ async function startServer() {
   // API Route: Create Web Call Access Token
   app.post("/api/create-web-call", async (req, res) => {
     try {
-      const { agent_id } = req.body;
-      if (!agent_id) return res.status(400).json({ error: "agent_id is required" });
+      const agentId = req.body.agent_id || process.env.RETELL_AGENT_ID;
+      
+      if (!agentId) {
+        return res.status(400).json({ error: "RETELL_AGENT_ID is not configured and none provided" });
+      }
 
       const apiKey = process.env.RETELL_API_KEY;
       if (!apiKey) {
@@ -322,13 +325,17 @@ async function startServer() {
       
       const retell = new Retell({ apiKey });
       const webCallResponse = await retell.call.createWebCall({
-        agent_id: agent_id,
+        agent_id: agentId,
       });
 
       res.json({ access_token: webCallResponse.access_token });
     } catch (error: any) {
       console.error("Retell Error:", error);
-      res.status(500).json({ error: error.message });
+      const status = error.status || 500;
+      res.status(status).json({ 
+        error: error.message,
+        details: error.body || {}
+      });
     }
   });
 
